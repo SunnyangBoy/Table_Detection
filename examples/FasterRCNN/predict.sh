@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+./predict.py --load /home/ubuntu/cs/tensorpack/examples/FasterRCNN/train_log/fastrcnn_resume/checkpoint --output-pb /home/ubuntu/cs/tensorpack/examples/FasterRCNN/train_log/fastrcnn_resume/frozen_model62.pb

@@ -47,7 +47,7 @@ class COCODetection(DatasetSplit):
 
             use `COCODetection(DIR, 'XX')` and `COCODetection(DIR, 'YY')`
         """
-        basedir = os.path.expanduser(basedir)
+        #basedir = os.path.expanduser(basedir)
         self._imgdir = os.path.realpath(os.path.join(
             basedir, self._INSTANCE_TO_BASEDIR.get(split, split)))
         assert os.path.isdir(self._imgdir), "{} is not a directory!".format(self._imgdir)
@@ -157,6 +157,7 @@ class COCODetection(DatasetSplit):
             y2 = min(max(y2, 0), height)
             w, h = x2 - x1, y2 - y1
             # Require non-zero seg area and more than 1x1 box size
+
             if obj['area'] > 1 and w > 0 and h > 0:
                 all_boxes.append([x1, y1, x2, y2])
                 all_cls.append(self.COCO_id_to_category_id.get(obj['category_id'], obj['category_id']))
@@ -228,12 +229,10 @@ def register_coco(basedir):
 
     # 80 names for COCO
     # For your own coco-format dataset, change this.
-    class_names = [
-        "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "traffic light", "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", "sports ball", "kite", "baseball bat", "baseball glove", "skateboard", "surfboard", "tennis racket", "bottle", "wine glass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange", "broccoli", "carrot", "hot dog", "pizza", "donut", "cake", "chair", "couch", "potted plant", "bed", "dining table", "toilet", "tv", "laptop", "mouse", "remote", "keyboard", "cell phone", "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush"]  # noqa
+    class_names = ['table']
     class_names = ["BG"] + class_names
 
-    for split in ["train2017", "val2017", "train2014", "val2014",
-                  "valminusminival2014", "minival2014", "val2017_100"]:
+    for split in ['train2021', "train2017"]:#, "train2014", "val2014", "valminusminival2014", "minival2014", "val2017_100"]:
         name = "coco_" + split
         DatasetRegistry.register(name, lambda x=split: COCODetection(basedir, x))
         DatasetRegistry.register_metadata(name, 'class_names', class_names)
@@ -241,6 +240,6 @@ def register_coco(basedir):
 
 if __name__ == '__main__':
     basedir = '~/data/coco'
-    c = COCODetection(basedir, 'train2014')
+    c = COCODetection(basedir, 'train2020')
     roidb = c.load(add_gt=True, add_mask=True)
     print("#Images:", len(roidb))

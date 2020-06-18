@@ -85,7 +85,7 @@ def crop_and_resize(image, boxes, box_ind, crop_size, pad_border=True):
     Aligned version of tf.image.crop_and_resize, following our definition of floating point boxes.
 
     Args:
-        image: NCHW
+        image: N C H W
         boxes: nx4, x1y1x2y2
         box_ind: (n,)
         crop_size (int):
@@ -98,7 +98,7 @@ def crop_and_resize(image, boxes, box_ind, crop_size, pad_border=True):
     # TF's crop_and_resize produces zeros on border
     if pad_border:
         # this can be quite slow
-        image = tf.pad(image, [[0, 0], [0, 0], [1, 1], [1, 1]], mode='SYMMETRIC')
+        image = tf.pad(image, [[0, 0], [1, 1], [1, 1], [0, 0]], mode='SYMMETRIC')
         boxes = boxes + 1
 
     @under_name_scope()
@@ -134,14 +134,14 @@ def crop_and_resize(image, boxes, box_ind, crop_size, pad_border=True):
 
         return tf.concat([ny0, nx0, ny0 + nh, nx0 + nw], axis=1)
 
-    image_shape = tf.shape(image)[2:]
+    image_shape = tf.shape(image)[1:3]
 
     boxes = transform_fpcoor_for_tf(boxes, image_shape, [crop_size, crop_size])
-    image = tf.transpose(image, [0, 2, 3, 1])   # nhwc
+    # image = tf.transpose(image, [0, 2, 3, 1])   # nhwc
     ret = tf.image.crop_and_resize(
         image, boxes, tf.cast(box_ind, tf.int32),
         crop_size=[crop_size, crop_size])
-    ret = tf.transpose(ret, [0, 3, 1, 2])   # ncss
+    # ret = tf.transpose(ret, [0, 3, 1, 2])   # nchw
     return ret
 
 
@@ -149,12 +149,12 @@ def crop_and_resize(image, boxes, box_ind, crop_size, pad_border=True):
 def roi_align(featuremap, boxes, resolution):
     """
     Args:
-        featuremap: 1xCxHxW
-        boxes: Nx4 floatbox
+        featuremap: 1 x C x H x W
+        boxes: N x 4 floatbox
         resolution: output spatial resolution
 
     Returns:
-        NxCx res x res
+        N x C x res x res
     """
     # sample 4 locations per roi bin
     ret = crop_and_resize(
@@ -165,7 +165,7 @@ def roi_align(featuremap, boxes, resolution):
         avgpool = tf.nn.avg_pool2d
     except AttributeError:
         avgpool = tf.nn.avg_pool
-    ret = avgpool(ret, [1, 1, 2, 2], [1, 1, 2, 2], padding='SAME', data_format='NCHW')
+    ret = avgpool(ret, [1, 2, 2, 1], [1, 2, 2, 1], padding='SAME', data_format='NHWC')
     return ret
 
 
@@ -186,7 +186,7 @@ class RPNAnchors(namedtuple('_RPNAnchors', ['boxes', 'gt_labels', 'gt_boxes'])):
         """
         Slice anchors to the spatial size of this featuremap.
         """
-        shape2d = tf.shape(featuremap)[2:]  # h,w
+        shape2d = tf.shape(featuremap)[1:3]  # h,w
         slice3d = tf.concat([shape2d, [-1]], axis=0)
         slice4d = tf.concat([shape2d, [-1, -1]], axis=0)
         boxes = tf.slice(self.boxes, [0, 0, 0, 0], slice4d)

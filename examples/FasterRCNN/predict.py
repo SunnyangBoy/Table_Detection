@@ -8,6 +8,7 @@ import shutil
 import tensorflow as tf
 import cv2
 import tqdm
+import time
 
 import tensorpack.utils.viz as tpviz
 from tensorpack.predict import MultiTowerOfflinePredictor, OfflinePredictor, PredictConfig
@@ -49,6 +50,7 @@ def do_visualize(model, model_path, nr_visualize=100, output_dir='output'):
     if os.path.isdir(output_dir):
         shutil.rmtree(output_dir)
     fs.mkdir_p(output_dir)
+
     with tqdm.tqdm(total=nr_visualize) as pbar:
         for idx, dp in itertools.islice(enumerate(df), nr_visualize):
             img, gt_boxes, gt_labels = dp['image'], dp['gt_boxes'], dp['gt_labels']
@@ -95,15 +97,18 @@ def do_evaluate(pred_config, output_file):
 
 def do_predict(pred_func, input_file):
     img = cv2.imread(input_file, cv2.IMREAD_COLOR)
+    start = time.time()
     results = predict_image(img, pred_func)
-    if cfg.MODE_MASK:
-        final = draw_final_outputs_blackwhite(img, results)
-    else:
-        final = draw_final_outputs(img, results)
+    end = time.time()
+    print('cost time is :/s', end - start)
+    #if cfg.MODE_MASK:
+    #    final = draw_final_outputs_blackwhite(img, results)
+    #else:
+    final = draw_final_outputs(img, results)
     viz = np.concatenate((img, final), axis=1)
-    cv2.imwrite("output.png", viz)
-    logger.info("Inference output for {} written to output.png".format(input_file))
-    tpviz.interactive_imshow(viz)
+    cv2.imwrite("{}.png".format(input_file[-15:-4]), viz)
+    logger.info("Inference output for {} written to {}.png".format(input_file, input_file[-15:-4]))
+    #tpviz.interactive_imshow(viz)
 
 
 if __name__ == '__main__':
@@ -124,7 +129,7 @@ if __name__ == '__main__':
     if args.config:
         cfg.update_args(args.config)
     register_coco(cfg.DATA.BASEDIR)  # add COCO datasets to the registry
-    register_balloon(cfg.DATA.BASEDIR)
+    #register_balloon(cfg.DATA.BASEDIR)
 
     MODEL = ResNetFPNModel() if cfg.MODE_FPN else ResNetC4Model()
 
@@ -133,6 +138,7 @@ if __name__ == '__main__':
         assert get_tf_version_tuple() >= (1, 7) and test_util.IsMklEnabled(), \
             "Inference requires either GPU support or MKL support!"
     assert args.load
+
     finalize_configs(is_training=False)
 
     if args.predict or args.visualize:

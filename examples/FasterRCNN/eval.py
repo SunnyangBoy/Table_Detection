@@ -125,6 +125,10 @@ def predict_image(img, model_func):
     scale = np.sqrt(resized_img.shape[0] * 1.0 / img.shape[0] * resized_img.shape[1] / img.shape[1])
     boxes, probs, labels, *masks = model_func(resized_img)
 
+    print('#' * 50)
+    print('mask shape: ', np.array(masks).shape)
+    print('#' * 50)
+
     # Some slow numpy postprocessing:
     boxes = boxes / scale
     # boxes are already clipped inside the graph, but after the floating point scaling, this may not be true any more.

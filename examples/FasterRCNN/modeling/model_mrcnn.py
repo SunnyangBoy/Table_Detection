@@ -16,10 +16,12 @@ from config import config as cfg
 def maskrcnn_loss(mask_logits, fg_labels, fg_target_masks):
     """
     Args:
-        mask_logits: #fg x #category xhxw
+        mask_logits: #fg x #category x h x w
         fg_labels: #fg, in 1~#class, int64
-        fg_target_masks: #fgxhxw, float32
+        fg_target_masks: #fg x h x w, float32
     """
+    mask_logits = tf.transpose(mask_logits, [0, 3, 1, 2])
+
     if get_tf_version_tuple() >= (1, 14):
         mask_logits = tf.gather(
             mask_logits, tf.reshape(fg_labels - 1, [-1, 1]), batch_dims=1)
@@ -33,6 +35,10 @@ def maskrcnn_loss(mask_logits, fg_labels, fg_target_masks):
 
     # add some training visualizations to tensorboard
     with tf.name_scope('mask_viz'):
+        # print('#' * 50)
+        # print('shape of fg_target_masks:' , fg_target_masks.shape)
+        # print('shape of mask_probs: ', mask_probs.shape)
+        # print('#' * 50)
         viz = tf.concat([fg_target_masks, mask_probs], axis=1)
         viz = tf.expand_dims(viz, 3)
         viz = tf.cast(viz * 255, tf.uint8, name='viz')
@@ -61,7 +67,7 @@ def maskrcnn_loss(mask_logits, fg_labels, fg_target_masks):
 def maskrcnn_upXconv_head(feature, num_category, num_convs, norm=None):
     """
     Args:
-        feature (NxCx s x s): size is 7 in C4 models and 14 in FPN models.
+        feature (N x C x s x s): size is 7 in C4 models and 14 in FPN models.
         num_category(int):
         num_convs (int): number of convolution layers
         norm (str or None): either None or 'GN'
@@ -71,7 +77,7 @@ def maskrcnn_upXconv_head(feature, num_category, num_convs, norm=None):
     """
     assert norm in [None, 'GN'], norm
     l = feature
-    with argscope([Conv2D, Conv2DTranspose], data_format='channels_first',
+    with argscope([Conv2D, Conv2DTranspose], data_format='channels_last',
                   kernel_initializer=tf.variance_scaling_initializer(
                       scale=2.0, mode='fan_out',
                       distribution='untruncated_normal' if get_tf_version_tuple() >= (1, 12) else 'normal')):

@@ -1,6 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # File: train.py
+import os
+import sys
+# Root directory of the project
+ROOT_DIR = os.path.abspath("../../")
+
+# Import Mask RCNN
+sys.path.append(ROOT_DIR)  # To find local version of the library
 
 import argparse
 
@@ -14,7 +21,6 @@ from config import finalize_configs
 from data import get_train_dataflow
 from eval import EvalCallback
 from modeling.generalized_rcnn import ResNetC4Model, ResNetFPNModel
-
 
 try:
     import horovod.tensorflow as hvd
@@ -31,7 +37,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--load', help='Load a model to start training from. It overwrites BACKBONE.WEIGHTS')
     parser.add_argument('--logdir', help='Log directory. Will remove the old one if already exists.',
-                        default='train_log/maskrcnn')
+                        default='train_log/fastrcnn_resume')
     parser.add_argument('--config', help="A list of KEY=VALUE to overwrite those defined in config.py", nargs='+')
 
     if get_tf_version_tuple() < (1, 6):
@@ -42,7 +48,7 @@ if __name__ == '__main__':
     if args.config:
         cfg.update_args(args.config)
     register_coco(cfg.DATA.BASEDIR)  # add COCO datasets to the registry
-    register_balloon(cfg.DATA.BASEDIR)  # add the demo balloon datasets to the registry
+    #register_balloon(cfg.DATA.BASEDIR)  # add the demo balloon datasets to the registry
 
     # Setup logging ...
     is_horovod = cfg.TRAINER == 'horovod'

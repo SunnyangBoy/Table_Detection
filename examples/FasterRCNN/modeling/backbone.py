@@ -21,12 +21,12 @@ def GroupNorm(x, group=32, gamma_initializer=tf.constant_initializer(1.)):
     shape = x.get_shape().as_list()
     ndims = len(shape)
     assert ndims == 4, shape
-    chan = shape[1]
+    chan = shape[3]
     assert chan % group == 0, chan
     group_size = chan // group
 
     orig_shape = tf.shape(x)
-    h, w = orig_shape[2], orig_shape[3]
+    h, w = orig_shape[1], orig_shape[2]
 
     x = tf.reshape(x, tf.stack([-1, group, group_size, h, w]))
 
@@ -72,7 +72,7 @@ def backbone_scope(freeze):
         x = get_norm()(x)
         return tf.nn.relu(x)
 
-    with argscope([Conv2D, MaxPooling, BatchNorm], data_format='channels_first'), \
+    with argscope([Conv2D, MaxPooling, BatchNorm], data_format='channels_last'), \
             argscope(Conv2D, use_bias=False, activation=nonlin,
                      kernel_initializer=tf.variance_scaling_initializer(
                          scale=2.0, mode='fan_out')), \
@@ -122,7 +122,7 @@ def get_norm(zero_init=False):
 
 
 def resnet_shortcut(l, n_out, stride, activation=tf.identity):
-    n_in = l.shape[1]
+    n_in = l.shape[3]
     if n_in != n_out:   # change dimension when channel is not the same
         # TF's SAME mode output ceil(x/stride), which is NOT what we want when x is odd and stride is 2
         # In FPN mode, the images are pre-padded already.
@@ -144,7 +144,7 @@ def resnet_bottleneck(l, ch_out, stride):
     else:
         l = Conv2D('conv1', l, ch_out, 1, strides=1)
         if stride == 2:
-            l = tf.pad(l, [[0, 0], [0, 0], maybe_reverse_pad(0, 1), maybe_reverse_pad(0, 1)])
+            l = tf.pad(l, [[0, 0], maybe_reverse_pad(0, 1), maybe_reverse_pad(0, 1), [0, 0]])
             l = Conv2D('conv2', l, ch_out, 3, strides=2, padding='VALID')
         else:
             l = Conv2D('conv2', l, ch_out, 3, strides=stride)
@@ -192,21 +192,22 @@ def resnet_conv5(image, num_block):
 
 def resnet_fpn_backbone(image, num_blocks):
     freeze_at = cfg.BACKBONE.FREEZE_AT
-    shape2d = tf.shape(image)[2:]
+    shape2d = tf.shape(image)[1:3]
     mult = float(cfg.FPN.RESOLUTION_REQUIREMENT)
     new_shape2d = tf.cast(tf.ceil(tf.cast(shape2d, tf.float32) / mult) * mult, tf.int32)
     pad_shape2d = new_shape2d - shape2d
     assert len(num_blocks) == 4, num_blocks
     with backbone_scope(freeze=freeze_at > 0):
-        chan = image.shape[1]
+        chan = image.shape[3]
         pad_base = maybe_reverse_pad(2, 3)
         l = tf.pad(image, tf.stack(
-            [[0, 0], [0, 0],
+            [[0, 0],
              [pad_base[0], pad_base[1] + pad_shape2d[0]],
-             [pad_base[0], pad_base[1] + pad_shape2d[1]]]))
-        l.set_shape([None, chan, None, None])
+             [pad_base[0], pad_base[1] + pad_shape2d[1]],
+            [0, 0]]))
+        l.set_shape([None, None, None, chan])
         l = Conv2D('conv0', l, 64, 7, strides=2, padding='VALID')
-        l = tf.pad(l, [[0, 0], [0, 0], maybe_reverse_pad(0, 1), maybe_reverse_pad(0, 1)])
+        l = tf.pad(l, [[0, 0], maybe_reverse_pad(0, 1), maybe_reverse_pad(0, 1), [0, 0]])
         l = MaxPooling('pool0', l, 3, strides=2, padding='VALID')
     with backbone_scope(freeze=freeze_at > 1):
         c2 = resnet_group('group0', l, resnet_bottleneck, 64, num_blocks[0], 1)

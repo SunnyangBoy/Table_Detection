@@ -28,7 +28,8 @@ class GeneralizedRCNN(ModelDesc):
     def preprocess(self, image):
         image = tf.expand_dims(image, 0)
         image = image_preprocess(image, bgr=True)
-        return tf.transpose(image, [0, 3, 1, 2])
+        return image
+        # tf.transpose(image, [0, 3, 1, 2])
 
     def optimizer(self):
         lr = tf.get_variable('learning_rate', initializer=0.003, trainable=False)
@@ -120,7 +121,7 @@ class ResNetC4Model(GeneralizedRCNN):
             inputs['anchor_labels'], inputs['anchor_boxes'])
         anchors = anchors.narrow_to(featuremap)
 
-        image_shape2d = tf.shape(image)[2:]     # h,w
+        image_shape2d = tf.shape(image)[1:3]     # h,w
         pred_boxes_decoded = anchors.decode_logits(rpn_box_logits)  # fHxfWxNAx4, floatbox
         proposal_boxes, proposal_scores = generate_rpn_proposals(
             tf.reshape(pred_boxes_decoded, [-1, 4]),
@@ -138,7 +139,7 @@ class ResNetC4Model(GeneralizedRCNN):
         return BoxProposals(proposal_boxes), losses
 
     def roi_heads(self, image, features, proposals, targets):
-        image_shape2d = tf.shape(image)[2:]     # h,w
+        image_shape2d = tf.shape(image)[1:3]     # h,w
         featuremap = features[0]
 
         gt_boxes, gt_labels, *_ = targets
@@ -154,7 +155,7 @@ class ResNetC4Model(GeneralizedRCNN):
 
         feature_fastrcnn = resnet_conv5(roi_resized, cfg.BACKBONE.RESNET_NUM_BLOCKS[-1])    # nxcx7x7
         # Keep C5 feature to be shared with mask branch
-        feature_gap = GlobalAvgPooling('gap', feature_fastrcnn, data_format='channels_first')
+        feature_gap = GlobalAvgPooling('gap', feature_fastrcnn, data_format='channels_last')
         fastrcnn_label_logits, fastrcnn_box_logits = fastrcnn_outputs('fastrcnn', feature_gap, cfg.DATA.NUM_CATEGORY)
 
         fastrcnn_head = FastRCNNHead(proposals, fastrcnn_box_logits, fastrcnn_label_logits, gt_boxes,
@@ -231,7 +232,7 @@ class ResNetFPNModel(GeneralizedRCNN):
     def rpn(self, image, features, inputs):
         assert len(cfg.RPN.ANCHOR_SIZES) == len(cfg.FPN.ANCHOR_STRIDES)
 
-        image_shape2d = tf.shape(image)[2:]     # h,w
+        image_shape2d = tf.shape(image)[1:3]     # h,w
         all_anchors_fpn = get_all_anchors_fpn(
             strides=cfg.FPN.ANCHOR_STRIDES,
             sizes=cfg.RPN.ANCHOR_SIZES,
@@ -263,7 +264,7 @@ class ResNetFPNModel(GeneralizedRCNN):
         return BoxProposals(proposal_boxes), losses
 
     def roi_heads(self, image, features, proposals, targets):
-        image_shape2d = tf.shape(image)[2:]     # h,w
+        image_shape2d = tf.shape(image)[1:3]     # h,w
         assert len(features) == 5, "Features have to be P23456!"
         gt_boxes, gt_labels, *_ = targets
 
@@ -301,11 +302,11 @@ class ResNetFPNModel(GeneralizedRCNN):
                     'maskrcnn', roi_feature_maskrcnn, cfg.DATA.NUM_CATEGORY)   # #fg x #cat x 28 x 28
 
                 target_masks_for_fg = crop_and_resize(
-                    tf.expand_dims(gt_masks, 1),
+                    tf.expand_dims(gt_masks, -1),
                     proposals.fg_boxes(),
                     proposals.fg_inds_wrt_gt, 28,
                     pad_border=False)  # fg x 1x28x28
-                target_masks_for_fg = tf.squeeze(target_masks_for_fg, 1, 'sampled_fg_mask_targets')
+                target_masks_for_fg = tf.squeeze(target_masks_for_fg, -1, 'sampled_fg_mask_targets')
                 all_losses.append(maskrcnn_loss(mask_logits, proposals.fg_labels(), target_masks_for_fg))
             return all_losses
         else:
@@ -320,6 +321,9 @@ class ResNetFPNModel(GeneralizedRCNN):
                 maskrcnn_head_func = getattr(model_mrcnn, cfg.FPN.MRCNN_HEAD_FUNC)
                 mask_logits = maskrcnn_head_func(
                     'maskrcnn', roi_feature_maskrcnn, cfg.DATA.NUM_CATEGORY)   # #fg x #cat x 28 x 28
+
+                mask_logits = tf.transpose(mask_logits, [0, 3, 1, 2])
+
                 indices = tf.stack([tf.range(tf.size(final_labels)), tf.cast(final_labels, tf.int32) - 1], axis=1)
                 final_mask_logits = tf.gather_nd(mask_logits, indices)   # #resultx28x28
                 tf.sigmoid(final_mask_logits, name='output/masks')

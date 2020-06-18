@@ -18,10 +18,10 @@ from .model_box import clip_boxes
 def rpn_head(featuremap, channel, num_anchors):
     """
     Returns:
-        label_logits: fHxfWxNA
-        box_logits: fHxfWxNAx4
+        label_logits: fH x fW x NA
+        box_logits: fH x fW x NA x 4
     """
-    with argscope(Conv2D, data_format='channels_first',
+    with argscope(Conv2D, data_format='channels_last',
                   kernel_initializer=tf.random_normal_initializer(stddev=0.01)):
         hidden = Conv2D('conv0', featuremap, channel, 3, activation=tf.nn.relu)
 
@@ -29,12 +29,12 @@ def rpn_head(featuremap, channel, num_anchors):
         box_logits = Conv2D('box', hidden, 4 * num_anchors, 1)
         # 1, NA(*4), im/16, im/16 (NCHW)
 
-        label_logits = tf.transpose(label_logits, [0, 2, 3, 1])  # 1xfHxfWxNA
+        #label_logits = tf.transpose(label_logits, [0, 2, 3, 1])  # 1xfHxfWxNA
         label_logits = tf.squeeze(label_logits, 0)  # fHxfWxNA
 
         shp = tf.shape(box_logits)  # 1x(NAx4)xfHxfW
-        box_logits = tf.transpose(box_logits, [0, 2, 3, 1])  # 1xfHxfWx(NAx4)
-        box_logits = tf.reshape(box_logits, tf.stack([shp[2], shp[3], num_anchors, 4]))  # fHxfWxNAx4
+        #box_logits = tf.transpose(box_logits, [0, 2, 3, 1])  # 1xfHxfWx(NAx4)
+        box_logits = tf.reshape(box_logits, tf.stack([shp[1], shp[2], num_anchors, 4]))  # fHxfWxNAx4
     return label_logits, box_logits
 
 

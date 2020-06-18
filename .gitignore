@@ -87,3 +87,14 @@ target/
 
 .idea/
 *.diff
+
+*.out
+
+*.ini
+
+examples/FasterRCNN/mask_publaynet/
+
+examples/FasterRCNN/result_test
+
+examples/FasterRCNN/train_log
+

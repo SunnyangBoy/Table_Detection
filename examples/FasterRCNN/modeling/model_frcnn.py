@@ -46,8 +46,8 @@ def sample_fast_rcnn_targets(boxes, gt_boxes, gt_labels):
     #fg is guaranteed to be > 0, because ground truth boxes will be added as proposals.
 
     Args:
-        boxes: nx4 region proposals, floatbox
-        gt_boxes: mx4, floatbox
+        boxes: n x 4 region proposals, floatbox
+        gt_boxes: m x 4, floatbox
         gt_labels: m, int32
 
     Returns:
@@ -250,7 +250,7 @@ def fastrcnn_Xconv1fc_head(feature, num_convs, norm=None):
     """
     assert norm in [None, 'GN'], norm
     l = feature
-    with argscope(Conv2D, data_format='channels_first',
+    with argscope(Conv2D, data_format='channels_last',
                   kernel_initializer=tf.variance_scaling_initializer(
                       scale=2.0, mode='fan_out',
                       distribution='untruncated_normal' if get_tf_version_tuple() >= (1, 12) else 'normal')):

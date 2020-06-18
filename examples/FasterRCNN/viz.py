@@ -115,6 +115,8 @@ def draw_final_outputs_blackwhite(img, results):
         for m2 in all_masks[1:]:
             m = m | (m2 > 0)
         img_bw[m] = img[m]
+    else:
+        print('#'*50)
 
     tags = ["{},{:.2f}".format(cfg.DATA.CLASS_NAMES[r.class_id], r.score) for r in results]
     ret = viz.draw_boxes(img_bw, boxes, tags)
